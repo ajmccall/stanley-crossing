@@ -106,6 +106,7 @@
             <div class="bg-white border-4 border-slate-800 rounded-[3rem] p-8 sm:p-12 shadow-2xl">
                 <h2 id="overlay-title" class="text-2xl font-black text-slate-500 mb-4 uppercase tracking-widest italic">Mrs Lamy says...</h2>
                 <p id="overlay-msg" class="text-4xl sm:text-6xl md:text-7xl font-black text-slate-900 leading-tight uppercase italic drop-shadow-sm">Always look both ways before crossing!</p>
+                <div id="overlay-stats" class="mt-6 hidden"></div>
             </div>
         </div>
         
@@ -148,6 +149,7 @@
         const portraitContainer = document.getElementById('portrait-container');
         const overlayTitle = document.getElementById('overlay-title');
         const overlayMsg = document.getElementById('overlay-msg');
+        const overlayStats = document.getElementById('overlay-stats');
         const restartBtn = document.getElementById('restart-btn');
         const mainRestartBtn = document.getElementById('main-restart-btn');
 
@@ -179,6 +181,9 @@
         let canvasHeight = 0, canvasWidth = 0, screenShake = 0, frameCount = 0;
         let lightState = 'red'; 
         let lightTimer = 0;
+        let carsEntered = 0;
+        let carsEnteredLevel = 0;
+        let levelsCompleted = 0;
 
         // Visual Layout constants (in Grid Units)
         const TOP_SAFE_ZONE = 4; 
@@ -333,6 +338,22 @@
                 overlayMsg.innerText = advice;
                 restartBtn.innerText = "Start Game";
             }
+            overlayStats.classList.add('hidden');
+            overlay.classList.remove('hidden');
+        }
+        
+        function showEndScreen() {
+            gameState = 'gameover';
+            portraitContainer.innerHTML = `<img src="${mrsLamyImageSrc}" alt="Mrs Lamy" class="w-full h-full object-cover">`;
+            overlayTitle.innerText = "GAME OVER";
+            overlayMsg.innerText = "YOU DID YOUR BEST!";
+            overlayStats.innerHTML = `
+                <div class="text-slate-600 uppercase tracking-widest text-sm mb-2 font-bold">Results</div>
+                <div class="text-3xl sm:text-4xl font-black text-slate-900 uppercase">Cars Avoided: ${carsEntered}</div>
+                <div class="text-3xl sm:text-4xl font-black text-slate-900 uppercase mt-2">Levels Completed: ${levelsCompleted}</div>
+            `;
+            overlayStats.classList.remove('hidden');
+            restartBtn.innerText = "Try Again";
             overlay.classList.remove('hidden');
         }
 
@@ -364,7 +385,9 @@
                         x: x - initialOffset - Math.random() * 100,
                         isCrazy,
                         type,
-                        color: isCrazy ? '#f97316' : `hsl(${Math.random() * 360}, 50%, 45%)`
+                        color: isCrazy ? '#f97316' : `hsl(${Math.random() * 360}, 50%, 45%)`,
+                        travel: 0,
+                        entered: false
                     });
                 }
                 // Lanes start exactly after top safe zone padding
@@ -400,10 +423,24 @@
                     if (!stopped) { 
                         const moveSpeed = v.isCrazy ? lane.speed * 1.15 : lane.speed; 
                         v.x += moveSpeed * lane.direction; 
+                        v.travel += Math.abs(moveSpeed);
                     }
                     const width = v.type === 'bus' ? BUS_WIDTH : CAR_WIDTH;
-                    if (lane.direction > 0 && v.x > canvasWidth + 200) v.x = -width - 200;
-                    else if (lane.direction < 0 && v.x < -width - 200) v.x = canvasWidth + 200;
+                    if (lane.direction > 0 && v.x > canvasWidth + 200) { 
+                        v.x = -width - 200; 
+                        v.travel = 0;
+                        v.entered = false;
+                    }
+                    else if (lane.direction < 0 && v.x < -width - 200) { 
+                        v.x = canvasWidth + 200; 
+                        v.travel = 0;
+                        v.entered = false;
+                    }
+                    const isVisible = (v.x + width) >= 0 && v.x <= canvasWidth;
+                    if (isVisible && !v.entered) {
+                        carsEnteredLevel++;
+                        v.entered = true;
+                    }
                     if (!stopped) {
                         const hitW = width - 8; const hitH = CAR_HEIGHT - 8;
                         if (player.x + 10 < v.x + hitW && player.x + GRID - 10 > v.x && player.y + 10 < lane.y + hitH && player.y + GRID - 10 > lane.y) { handleDeath(); }
@@ -419,17 +456,19 @@
             lives--; livesDisplay.innerText = lives;
             screenShake = 30; player.hitCooldown = 60;
             if (lives <= 0) {
-                gameState = 'gameover';
-                overlayTitle.innerText = "OUT OF THE GAME!";
-                overlayMsg.innerText = "ALWAYS LOOK BOTH WAYS!";
-                restartBtn.innerText = "Try Again";
-                overlay.classList.remove('hidden');
+                showEndScreen();
             } else {
                 setTimeout(() => { player.x = Math.floor(canvasWidth / 2 / GRID) * GRID; player.y = canvasHeight - GRID; }, 100);
             }
         }
 
-        function handleWin() { level++; showSafetyDialogue(true); }
+        function handleWin() { 
+            carsEntered += carsEnteredLevel; 
+            carsEnteredLevel = 0;
+            levelsCompleted++; 
+            level++; 
+            showSafetyDialogue(true); 
+        }
 
         function draw() {
             ctx.save();
@@ -515,7 +554,7 @@
         document.getElementById('btn-right').onclick = () => movePlayer(GRID, 0);
 
         restartBtn.onclick = () => {
-            if (overlayTitle.innerText === "OUT OF THE GAME!") { level = 1; lives = 3; }
+            if (overlayTitle.innerText === "GAME OVER") { level = 1; lives = 3; carsEntered = 0; carsEnteredLevel = 0; levelsCompleted = 0; }
             initLevel(); 
         };
 
