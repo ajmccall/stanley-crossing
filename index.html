@@ -320,13 +320,19 @@
             lanes = [];
             for (let i = 1; i <= numLanes; i++) {
                 const direction = Math.random() > 0.5 ? 1 : -1;
-                const speed = ((Math.random() * 0.4 + 0.6) + (level * 0.08)) * 0.5;
+                const speed = ((Math.random() * 0.4 + 0.6) + (level * 0.08)) * 0.66125;
                 const vehicles = [];
                 const spacing = 550 + Math.random() * 400 - (level * 10);
+                const initialOffset = Math.random() * spacing;
                 for (let x = -BUS_WIDTH; x < canvasWidth + BUS_WIDTH + spacing; x += spacing) {
                     const isCrazy = Math.random() < 0.15; 
                     const type = Math.random() < 0.2 ? 'bus' : 'car';
-                    vehicles.push({ x: x - Math.random() * 100, isCrazy, type, color: isCrazy ? '#f97316' : `hsl(${Math.random() * 360}, 50%, 45%)` });
+                    vehicles.push({
+                        x: x - initialOffset - Math.random() * 100,
+                        isCrazy,
+                        type,
+                        color: isCrazy ? '#f97316' : `hsl(${Math.random() * 360}, 50%, 45%)`
+                    });
                 }
                 // Lanes start exactly after top safe zone padding
                 lanes.push({ y: (i + TOP_SAFE_ZONE - 1) * GRID, direction, speed, vehicles });
