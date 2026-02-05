@@ -187,12 +187,24 @@
         function drawTrafficLight(x, y) {
             ctx.save();
             ctx.translate(x, y);
-            ctx.fillStyle = '#334155'; ctx.fillRect(-2, 0, 4, 25);
-            ctx.fillStyle = '#1e293b'; ctx.fillRect(-10, -35, 20, 35);
+            // Pole
+            ctx.fillStyle = '#334155'; ctx.fillRect(-3, 0, 6, 30);
+            // Housing
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(-12, -42, 24, 42);
+            // Red light + glow
             ctx.fillStyle = (lightState === 'red') ? '#ef4444' : '#450a0a';
-            ctx.beginPath(); ctx.arc(0, -25, 6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(0, -30, 7, 0, Math.PI*2); ctx.fill();
+            if (lightState === 'red') {
+                ctx.fillStyle = 'rgba(239,68,68,0.35)';
+                ctx.beginPath(); ctx.arc(0, -30, 13, 0, Math.PI*2); ctx.fill();
+            }
+            // Green light + glow
             ctx.fillStyle = (lightState === 'green') ? '#22c55e' : '#052e16';
-            ctx.beginPath(); ctx.arc(0, -10, 6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(0, -12, 7, 0, Math.PI*2); ctx.fill();
+            if (lightState === 'green') {
+                ctx.fillStyle = 'rgba(34,197,94,0.35)';
+                ctx.beginPath(); ctx.arc(0, -12, 13, 0, Math.PI*2); ctx.fill();
+            }
             ctx.restore();
         }
 
@@ -441,7 +453,8 @@
             
             if (lives === 1) { 
                 drawTrafficLight(canvasWidth - 30, canvasHeight - 15); 
-                drawTrafficLight(30, (TOP_SAFE_ZONE) * GRID + 10); 
+                // Align base of pole to top edge of first road lane
+                drawTrafficLight(30, (TOP_SAFE_ZONE * GRID) - 30); 
             }
             
             lanes.forEach((lane, idx) => {
@@ -462,6 +475,7 @@
                 }
                 lane.vehicles.forEach(v => drawVehicle(v, lane.y, lane.direction));
             });
+
             drawGirl(player.x, player.y);
             // Vignette
             const v = ctx.createRadialGradient(canvasWidth/2, canvasHeight/2, canvasWidth/6, canvasWidth/2, canvasHeight/2, canvasWidth);
