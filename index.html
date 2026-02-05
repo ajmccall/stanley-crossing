@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Crossy Stanley Road</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: #15803d; /* Forest green */
+            box-shadow: 0 0 100px rgba(0,0,0,0.7);
+        }
+        .ui-overlay { pointer-events: none; }
+        .controls { pointer-events: auto; }
+        
+        @keyframes bob {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .teacher-portrait {
+            animation: bob 3s ease-in-out infinite;
+        }
+
+        /* Speech Bubble Tail */
+        .bubble-tail {
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-bottom: 30px solid white;
+            position: absolute;
+            top: -28px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+        .bubble-tail-outline {
+            width: 0;
+            height: 0;
+            border-left: 24px solid transparent;
+            border-right: 24px solid transparent;
+            border-bottom: 34px solid #1e293b;
+            position: absolute;
+            top: -34px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center h-screen overflow-hidden text-slate-900">
+
+    <!-- Game UI -->
+    <div class="fixed top-4 left-4 z-10 text-white drop-shadow-lg ui-overlay">
+        <h1 class="text-3xl font-black italic tracking-tighter uppercase leading-none text-white">Stanley Park Road</h1>
+        <div class="flex gap-4 mt-2">
+            <p class="bg-blue-600/80 backdrop-blur-sm px-3 py-1 rounded-lg font-bold border border-blue-400 text-xs sm:text-base text-white shadow-lg">Level: <span id="level-display">1</span></p>
+            <p class="bg-red-600/80 backdrop-blur-sm px-3 py-1 rounded-lg font-bold border border-red-400 text-xs sm:text-base text-white shadow-lg">Lives: <span id="lives-display">3</span></p>
+        </div>
+    </div>
+
+    <!-- Restart Button -->
+    <div class="fixed top-4 right-4 z-10 controls">
+        <button id="main-restart-btn" class="bg-slate-800/80 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-bold border border-slate-600 backdrop-blur-sm transition-all active:scale-90 text-xs sm:text-base uppercase tracking-wider shadow-lg">
+            Restart
+        </button>
+    </div>
+
+    <!-- Dialogue/GameOver Screen -->
+    <div id="overlay" class="fixed inset-0 bg-slate-950/95 z-20 flex flex-col items-center justify-center text-center p-4">
+        
+        <!-- Mrs Lamy Portrait -->
+        <div id="portrait-container" class="mb-10 w-40 h-40 sm:w-56 sm:h-56 bg-white rounded-full border-8 border-slate-200 flex items-center justify-center overflow-hidden teacher-portrait shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+            <!-- SVG will be injected here -->
+        </div>
+
+        <!-- Speech Bubble Container -->
+        <div class="relative max-w-4xl w-full">
+            <div class="bubble-tail-outline"></div>
+            <div class="bubble-tail"></div>
+            <div class="bg-white border-4 border-slate-800 rounded-[3rem] p-8 sm:p-12 shadow-2xl">
+                <h2 id="overlay-title" class="text-2xl font-black text-slate-500 mb-4 uppercase tracking-widest italic">Mrs Lamy says...</h2>
+                <p id="overlay-msg" class="text-4xl sm:text-6xl md:text-7xl font-black text-slate-900 leading-tight uppercase italic drop-shadow-sm">Always look both ways before crossing!</p>
+            </div>
+        </div>
+        
+        <button id="restart-btn" class="mt-12 bg-yellow-400 hover:bg-yellow-300 text-black font-black py-6 px-16 rounded-3xl text-3xl transition-all active:scale-95 uppercase shadow-[0_15px_0_rgb(202,138,4)] hover:translate-y-1 active:shadow-none active:translate-y-[15px] tracking-widest">
+            Continue
+        </button>
+    </div>
+
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Controls -->
+    <div class="fixed bottom-6 flex flex-col items-center gap-4 controls">
+        <div class="flex flex-col items-center gap-2 sm:hidden">
+            <button id="btn-up" class="w-16 h-16 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border-2 border-white/30 text-white active:bg-white/40 active:scale-90 transition-all">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
+            </button>
+            <div class="flex gap-10">
+                <button id="btn-left" class="w-16 h-16 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border-2 border-white/30 text-white active:bg-white/40 active:scale-90 transition-all">
+                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7"></path></svg>
+                </button>
+                <button id="btn-down" class="w-16 h-16 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border-2 border-white/30 text-white active:bg-white/40 active:scale-90 transition-all">
+                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <button id="btn-right" class="w-16 h-16 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border-2 border-white/30 text-white active:bg-white/40 active:scale-90 transition-all">
+                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const levelDisplay = document.getElementById('level-display');
+        const livesDisplay = document.getElementById('lives-display');
+        const overlay = document.getElementById('overlay');
+        const portraitContainer = document.getElementById('portrait-container');
+        const overlayTitle = document.getElementById('overlay-title');
+        const overlayMsg = document.getElementById('overlay-msg');
+        const restartBtn = document.getElementById('restart-btn');
+        const mainRestartBtn = document.getElementById('main-restart-btn');
+
+        const GRID = 44;
+        const CAR_WIDTH = 64;
+        const CAR_HEIGHT = 32;
+        const BUS_WIDTH = 120;
+
+        const mrsLamyImageSrc = "teacher_01.png";
+
+        const safetyAdvice = [
+            "Always look both ways before crossing!",
+            "Don't run across the road, walk carefully!",
+            "Look out for crazy drivers who don't follow rules!",
+            "Wait for the Green Man, but still check for cars.",
+            "Make sure the drivers see you before you step out.",
+            "Stanley Park Road is busy, stay focused!",
+            "Never step out from behind a parked vehicle!",
+            "Concentrate! Road safety is very important.",
+            "Remember: the orange car might not stop for you!",
+            "Stop, Look, and Listen! Safety first."
+        ];
+
+        let gameState = 'dialogue'; 
+        let level = 1;
+        let lives = 3;
+        let lanes = [];
+        let player = { x: 0, y: 0, hitCooldown: 0 };
+        let canvasHeight = 0, canvasWidth = 0, screenShake = 0, frameCount = 0;
+        let lightState = 'red'; 
+        let lightTimer = 0;
+
+        // Visual Layout constants (in Grid Units)
+        const TOP_SAFE_ZONE = 4; 
+        const BOTTOM_START_ZONE = 1.2;
+
+        function drawTrafficLight(x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.fillStyle = '#334155'; ctx.fillRect(-2, 0, 4, 25);
+            ctx.fillStyle = '#1e293b'; ctx.fillRect(-10, -35, 20, 35);
+            ctx.fillStyle = (lightState === 'red') ? '#ef4444' : '#450a0a';
+            ctx.beginPath(); ctx.arc(0, -25, 6, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = (lightState === 'green') ? '#22c55e' : '#052e16';
+            ctx.beginPath(); ctx.arc(0, -10, 6, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        }
+
+        function drawBillboard(x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+            // Posts
+            ctx.fillStyle = '#475569'; 
+            ctx.fillRect(-55, -20, 8, 42); 
+            ctx.fillRect(47, -20, 8, 42);
+            const w = 170, h = 70;
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(-w/2 + 6, -20 - h + 6, w, h);
+            // Sign body
+            ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 4;
+            ctx.fillRect(-w/2, -20 - h, w, h); ctx.strokeRect(-w/2, -20 - h, w, h);
+            // Accent bar
+            ctx.fillStyle = '#e2e8f0'; ctx.fillRect(-w/2, -20 - h, w, 10);
+            // Text
+            ctx.fillStyle = '#1e3a8a'; ctx.font = 'bold 12px "Trebuchet MS", sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText("STANLEY PARK", 0, -20 - h + 28);
+            ctx.font = '900 16px "Trebuchet MS", sans-serif'; ctx.fillStyle = '#2563eb';
+            ctx.fillText("JUNIOR SCHOOL", 0, -20 - h + 52);
+            ctx.restore();
+        }
+
+        function drawSchool(x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+            // Main building
+            ctx.fillStyle = '#a11f1f'; ctx.fillRect(-52, -58, 104, 58);
+            ctx.fillStyle = '#7f1d1d'; ctx.fillRect(-52, -58, 104, 6);
+            // Roof
+            ctx.fillStyle = '#3b0a0a'; ctx.beginPath(); ctx.moveTo(-58, -58); ctx.lineTo(0, -100); ctx.lineTo(58, -58); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#5b0f0f'; ctx.beginPath(); ctx.moveTo(-45, -58); ctx.lineTo(0, -90); ctx.lineTo(45, -58); ctx.closePath(); ctx.fill();
+            // Chimney
+            ctx.fillStyle = '#5b0f0f'; ctx.fillRect(25, -95, 12, 20);
+            // Door
+            ctx.fillStyle = '#3f2b18'; ctx.fillRect(-12, -26, 24, 26);
+            ctx.fillStyle = '#1e293b'; ctx.fillRect(-12, -26, 24, 4);
+            // Windows
+            ctx.fillStyle = '#bae6fd'; ctx.fillRect(-36, -45, 18, 18); ctx.fillRect(18, -45, 18, 18);
+            ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2;
+            ctx.strokeRect(-36, -45, 18, 18); ctx.strokeRect(18, -45, 18, 18);
+            ctx.restore();
+        }
+
+        function drawGirl(x, y) {
+            ctx.save();
+            ctx.translate(x + GRID/2, y + GRID/2);
+            const isFlash = player.hitCooldown > 0 && Math.floor(player.hitCooldown / 5) % 2 === 0;
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(0, 18, 10, 4, 0, 0, Math.PI*2); ctx.fill();
+            // Hair
+            ctx.fillStyle = isFlash ? '#ef4444' : '#3f2b18';
+            ctx.beginPath(); ctx.ellipse(0, -10, 12, 10, 0, 0, Math.PI * 2); ctx.fill();
+            // Face
+            ctx.fillStyle = isFlash ? '#fee2e2' : '#ffdbac';
+            ctx.beginPath(); ctx.ellipse(0, -8, 8, 8, 0, 0, Math.PI * 2); ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#1f2937'; ctx.fillRect(-4, -9, 2, 2); ctx.fillRect(2, -9, 2, 2);
+            // Dress
+            ctx.fillStyle = isFlash ? '#7f1d1d' : '#1e3a8a';
+            ctx.beginPath(); ctx.moveTo(-11, 0); ctx.lineTo(11, 0); ctx.lineTo(15, 18); ctx.lineTo(-15, 18); ctx.closePath(); ctx.fill();
+            // Collar
+            ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(0, 6); ctx.lineTo(6, 0); ctx.fill();
+            // Legs
+            ctx.strokeStyle = isFlash ? '#7f1d1d' : '#ffdbac'; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(-5, 18); ctx.lineTo(-5, 26); ctx.moveTo(5, 18); ctx.lineTo(5, 26); ctx.stroke();
+            // Shoes
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(-8, 26, 6, 3); ctx.fillRect(2, 26, 6, 3);
+            ctx.restore();
+        }
+
+        function drawVehicle(v, y, direction) {
+            ctx.save();
+            ctx.translate(v.x, y + (GRID - CAR_HEIGHT) / 2);
+            const w = v.type === 'bus' ? BUS_WIDTH : CAR_WIDTH;
+            const h = CAR_HEIGHT;
+            ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(4, h-2, w-8, 6);
+            ctx.fillStyle = v.color; ctx.beginPath(); ctx.roundRect(0, 0, w, h, 7); ctx.fill();
+            // Highlight stripe
+            ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillRect(4, 4, w-8, 5);
+            if (v.isCrazy) {
+                // Orange accent + chaos bubble
+                ctx.fillStyle = '#fb923c'; ctx.fillRect(0, 0, w, 3);
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(2, 2, w-4, h-4);
+                if (Math.floor(frameCount / 16) % 2 === 0) {
+                    ctx.fillStyle = '#fde047'; ctx.font = 'bold 11px "Trebuchet MS", sans-serif'; 
+                    ctx.fillText("BEEP!", direction > 0 ? 0 : w - 36, -16);
+                }
+                ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w/2, -16, 26, 12, 0, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1.5; ctx.stroke();
+                ctx.fillStyle = '#0f172a'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.fillText("#!%@&", w/2, -12);
+                ctx.fillStyle = '#0f172a'; if (direction > 0) ctx.fillRect(0, -6, 5, 16); else ctx.fillRect(w-5, -6, 5, 16);
+            }
+            // Windows
+            ctx.fillStyle = '#0f172a';
+            if (v.type === 'bus') { for(let i=0; i<4; i++) ctx.fillRect(10 + i*25, 5, 18, h-10); }
+            else { if (direction > 0) { ctx.fillRect(44, 5, 12, h-10); ctx.fillRect(10, 5, 30, h-10); } else { ctx.fillRect(8, 5, 12, h-10); ctx.fillRect(24, 5, 30, h-10); } }
+            // Wheels
+            ctx.fillStyle = '#111827';
+            ctx.beginPath(); ctx.arc(12, h-2, 5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(w-12, h-2, 5, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#9ca3af';
+            ctx.beginPath(); ctx.arc(12, h-2, 2.5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(w-12, h-2, 2.5, 0, Math.PI*2); ctx.fill();
+            // Headlight
+            ctx.fillStyle = '#fef08a'; if (direction > 0) ctx.fillRect(w-5, 6, 5, 6); else ctx.fillRect(0, 6, 5, 6);
+            ctx.restore();
+        }
+
+        function showSafetyDialogue(isSuccess = false) {
+            gameState = 'dialogue';
+            portraitContainer.innerHTML = `<img src="${mrsLamyImageSrc}" alt="Mrs Lamy" class="w-full h-full object-cover">`;
+            const advice = safetyAdvice[Math.floor(Math.random() * safetyAdvice.length)];
+            if (isSuccess) {
+                overlayTitle.innerText = "WELL DONE!";
+                overlayMsg.innerText = advice;
+                restartBtn.innerText = "Next Level";
+            } else {
+                overlayTitle.innerText = "Mrs Lamy says...";
+                overlayMsg.innerText = advice;
+                restartBtn.innerText = "Start Game";
+            }
+            overlay.classList.remove('hidden');
+        }
+
+        function initLevel() {
+            const numLanes = 2 + Math.min(level, 6); 
+            canvasWidth = Math.min(window.innerWidth - 40, 520);
+            
+            // Height Calculation
+            canvasHeight = (numLanes + TOP_SAFE_ZONE + BOTTOM_START_ZONE) * GRID;
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            
+            player.x = Math.floor(canvasWidth / 2 / GRID) * GRID;
+            player.y = canvasHeight - GRID;
+            player.hitCooldown = 0;
+            lightState = 'red'; lightTimer = 300;
+            
+            lanes = [];
+            for (let i = 1; i <= numLanes; i++) {
+                const direction = Math.random() > 0.5 ? 1 : -1;
+                const speed = ((Math.random() * 0.4 + 0.6) + (level * 0.08)) * 0.5;
+                const vehicles = [];
+                const spacing = 550 + Math.random() * 400 - (level * 10);
+                for (let x = -BUS_WIDTH; x < canvasWidth + BUS_WIDTH + spacing; x += spacing) {
+                    const isCrazy = Math.random() < 0.15; 
+                    const type = Math.random() < 0.2 ? 'bus' : 'car';
+                    vehicles.push({ x: x - Math.random() * 100, isCrazy, type, color: isCrazy ? '#f97316' : `hsl(${Math.random() * 360}, 50%, 45%)` });
+                }
+                // Lanes start exactly after top safe zone padding
+                lanes.push({ y: (i + TOP_SAFE_ZONE - 1) * GRID, direction, speed, vehicles });
+            }
+            levelDisplay.innerText = level;
+            livesDisplay.innerText = lives;
+            overlay.classList.add('hidden');
+            gameState = 'playing';
+        }
+
+        function isVehicleStopped(v) {
+            if (v.isCrazy) return false; 
+            if (lives === 1 && lightState === 'green') return true;
+            return false;
+        }
+
+        function update() {
+            if (gameState !== 'playing') return;
+            frameCount++;
+            if (screenShake > 0) screenShake--;
+            if (player.hitCooldown > 0) player.hitCooldown--;
+            if (lives === 1) {
+                lightTimer--;
+                if (lightTimer <= 0) {
+                    if (lightState === 'red') { lightState = 'green'; lightTimer = 240; }
+                    else { lightState = 'red'; lightTimer = 360; }
+                }
+            }
+            lanes.forEach(lane => {
+                lane.vehicles.forEach(v => {
+                    const stopped = isVehicleStopped(v);
+                    if (!stopped) { 
+                        const moveSpeed = v.isCrazy ? lane.speed * 1.15 : lane.speed; 
+                        v.x += moveSpeed * lane.direction; 
+                    }
+                    const width = v.type === 'bus' ? BUS_WIDTH : CAR_WIDTH;
+                    if (lane.direction > 0 && v.x > canvasWidth + 200) v.x = -width - 200;
+                    else if (lane.direction < 0 && v.x < -width - 200) v.x = canvasWidth + 200;
+                    if (!stopped) {
+                        const hitW = width - 8; const hitH = CAR_HEIGHT - 8;
+                        if (player.x + 10 < v.x + hitW && player.x + GRID - 10 > v.x && player.y + 10 < lane.y + hitH && player.y + GRID - 10 > lane.y) { handleDeath(); }
+                    }
+                });
+            });
+            // SAFE logic: win as soon as player reaches the top green safe area
+            if (player.y <= (TOP_SAFE_ZONE - 0.5) * GRID) handleWin();
+        }
+
+        function handleDeath() {
+            if (player.hitCooldown > 0) return;
+            lives--; livesDisplay.innerText = lives;
+            screenShake = 30; player.hitCooldown = 60;
+            if (lives <= 0) {
+                gameState = 'gameover';
+                overlayTitle.innerText = "OUT OF THE GAME!";
+                overlayMsg.innerText = "ALWAYS LOOK BOTH WAYS!";
+                restartBtn.innerText = "Try Again";
+                overlay.classList.remove('hidden');
+            } else {
+                setTimeout(() => { player.x = Math.floor(canvasWidth / 2 / GRID) * GRID; player.y = canvasHeight - GRID; }, 100);
+            }
+        }
+
+        function handleWin() { level++; showSafetyDialogue(true); }
+
+        function draw() {
+            ctx.save();
+            if (screenShake > 0) ctx.translate((Math.random()-0.5)*15, (Math.random()-0.5)*15);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Background Grass with subtle gradient
+            const g = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+            g.addColorStop(0, '#166534');
+            g.addColorStop(1, '#15803d');
+            ctx.fillStyle = g; ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            // Grass stripes
+            ctx.fillStyle = 'rgba(255,255,255,0.04)';
+            for (let i = 0; i < canvasHeight; i += 22) ctx.fillRect(0, i, canvasWidth, 2);
+            
+            // GROUND LINE for school/sign (positioned within Safe Zone)
+            const groundY = GRID * 3.1; 
+            const schoolX = canvasWidth / 2 - 100;
+            drawSchool(schoolX, groundY);
+            drawBillboard(schoolX + 160, groundY);
+            
+            if (lives === 1) { 
+                drawTrafficLight(canvasWidth - 30, canvasHeight - 15); 
+                drawTrafficLight(30, (TOP_SAFE_ZONE) * GRID + 10); 
+            }
+            
+            lanes.forEach((lane, idx) => {
+                ctx.fillStyle = '#1e293b'; ctx.fillRect(0, lane.y, canvasWidth, GRID);
+                ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillRect(0, lane.y, canvasWidth, 2);
+                if (idx === Math.floor(lanes.length / 2)) { 
+                    ctx.fillStyle = '#eab308'; ctx.fillRect(0, lane.y - 2, canvasWidth, 2); ctx.fillRect(0, lane.y + 1, canvasWidth, 2); 
+                }
+                lane.vehicles.forEach(v => drawVehicle(v, lane.y, lane.direction));
+            });
+            drawGirl(player.x, player.y);
+            ctx.restore();
+            requestAnimationFrame(() => { update(); draw(); });
+        }
+
+        function movePlayer(dx, dy) {
+            if (gameState !== 'playing') return;
+            const nx = player.x + dx; const ny = player.y + dy;
+            if (nx < 0 || nx > canvasWidth - GRID || ny < 0 || ny > canvasHeight - GRID) return;
+            let isBlocked = false;
+            lanes.forEach(lane => { 
+                lane.vehicles.forEach(v => { 
+                    if (isVehicleStopped(v)) { 
+                        const width = v.type === 'bus' ? BUS_WIDTH : CAR_WIDTH; 
+                        if (nx < v.x + width && nx + GRID > v.x && ny < lane.y + CAR_HEIGHT && ny + GRID > lane.y) isBlocked = true; 
+                    } 
+                }); 
+            });
+            if (!isBlocked) { player.x = nx; player.y = ny; }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp') movePlayer(0, -GRID);
+            if (e.key === 'ArrowDown') movePlayer(0, GRID);
+            if (e.key === 'ArrowLeft') movePlayer(-GRID, 0);
+            if (e.key === 'ArrowRight') movePlayer(GRID, 0);
+        });
+
+        document.getElementById('btn-up').onclick = () => movePlayer(0, -GRID);
+        document.getElementById('btn-down').onclick = () => movePlayer(0, GRID);
+        document.getElementById('btn-left').onclick = () => movePlayer(-GRID, 0);
+        document.getElementById('btn-right').onclick = () => movePlayer(GRID, 0);
+
+        restartBtn.onclick = () => {
+            if (overlayTitle.innerText === "OUT OF THE GAME!") { level = 1; lives = 3; }
+            initLevel(); 
+        };
+
+        mainRestartBtn.onclick = () => { level = 1; lives = 3; initLevel(); showSafetyDialogue(false); };
+
+        window.onload = () => { initLevel(); showSafetyDialogue(false); draw(); };
+        window.onresize = () => initLevel();
+    </script>
+</body>
+</html>
